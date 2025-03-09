@@ -135,20 +135,17 @@ if st.session_state.current_data is not None:
                     st.markdown("**Original:**")
                     st.text(f"Position: {position}")
                     
-                    # Format the full original sequence with the mutation highlighted
-                    formatted_orig = ""
-                    for i, aa in enumerate(original_sequence):
-                        if i == pos_index:
-                            formatted_orig += f"<span style='color:white;background-color:red;font-weight:bold'>{aa}</span>"
-                        else:
-                            formatted_orig += aa
-                    
-                    # Use a scrollable container for the sequence
-                    st.markdown(f"""
-                    <div style='max-height: 300px; overflow-y: auto;'>
-                        <pre style='font-family:monospace;white-space:pre-wrap;'>{formatted_orig}</pre>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Format sequence with highlighted position
+                    formatted_orig = (
+                        f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
+                        f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
+                        f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
+                        f'{html.escape(original_sequence[:pos_index])}'
+                        f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(original_sequence[pos_index])}</span>'
+                        f'{html.escape(original_sequence[pos_index + 1:])}'
+                        f'</div></div>'
+                    )
+                    st.markdown(formatted_orig, unsafe_allow_html=True)
                 
                 # Mutated sequence display with highlight
                 with col2:
@@ -156,33 +153,27 @@ if st.session_state.current_data is not None:
                     st.text(f"Mutation: {mutation_code}")
                     
                     if is_termination:
-                        # For termination, show truncated sequence with marker at end
-                        formatted_mut = ""
-                        for i, aa in enumerate(mutated_sequence):
-                            formatted_mut += aa
-                        formatted_mut += "<span style='color:white;background-color:red;font-weight:bold'>▪</span>"
-                        
-                        # Use a scrollable container for the sequence
-                        st.markdown(f"""
-                        <div style='max-height: 300px; overflow-y: auto;'>
-                            <pre style='font-family:monospace;white-space:pre-wrap;'>{formatted_mut}</pre>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # For termination, show truncated sequence with marker
+                        formatted_mut = (
+                            f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
+                            f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
+                            f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
+                            f'{html.escape(mutated_sequence)}'
+                            f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">■</span>'
+                            f'</div></div>'
+                        )
                     else:
-                        # For substitution, highlight the substituted amino acid
-                        formatted_mut = ""
-                        for i, aa in enumerate(mutated_sequence):
-                            if i == pos_index:
-                                formatted_mut += f"<span style='color:white;background-color:red;font-weight:bold'>{aa}</span>"
-                            else:
-                                formatted_mut += aa
-                        
-                        # Use a scrollable container for the sequence
-                        st.markdown(f"""
-                        <div style='max-height: 300px; overflow-y: auto;'>
-                            <pre style='font-family:monospace;white-space:pre-wrap;'>{formatted_mut}</pre>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Format sequence with highlighted mutation
+                        formatted_mut = (
+                            f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
+                            f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
+                            f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
+                            f'{html.escape(mutated_sequence[:pos_index])}'
+                            f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(mutated_sequence[pos_index])}</span>'
+                            f'{html.escape(mutated_sequence[pos_index + 1:])}'
+                            f'</div></div>'
+                        )
+                    st.markdown(formatted_mut, unsafe_allow_html=True)
                 
                 # Show full mutated sequence
                 st.subheader("Mutated Sequence")
