@@ -12,9 +12,9 @@ def format_sequence_entry(data, mutation=None):
     protein_name = data["proteinDescription"]["recommendedName"]["fullName"]["value"]
     organism = data["organism"]["scientificName"]
     
-    # Add mutation information to the comment if a mutation was applied
-    mutation_info = f" [{mutation}]" if mutation else ""
-    comment = f"# UniProt {data['primaryAccession']} - {protein_name} ({organism}){mutation_info}"
+    # Add mutation information or [WT] right after UniProt ID
+    mutation_info = f"[{mutation}]" if mutation else "[WT]"
+    comment = f"# UniProt {data['primaryAccession']} {mutation_info} - {protein_name} ({organism})"
     
     sequence = data["sequence"]["value"]
     return comment, sequence
@@ -83,12 +83,17 @@ if st.session_state.current_data is not None:
     if st.button("Add Mutation"):
         st.session_state.show_mutation_input = True
     
+    # Display the original sequence immediately when in mutation mode
     if st.session_state.show_mutation_input:
+        # Display the original sequence before mutation input
+        comment, original_sequence = format_sequence_entry(st.session_state.current_data)
+        st.subheader("Original Sequence")
+        st.code(f'{comment}\n"{original_sequence}"', language="python")
+        
+        # Then show the mutation input
         mutation_code = st.text_input("Enter mutation (e.g., P30R or P30TER)")
         
         if mutation_code:
-            comment, original_sequence = format_sequence_entry(st.session_state.current_data)
-            
             # Apply the mutation
             mutated_sequence, error = apply_mutation(original_sequence, mutation_code)
             
@@ -97,10 +102,6 @@ if st.session_state.current_data is not None:
             else:
                 st.session_state.mutated_sequence = mutated_sequence
                 st.session_state.mutation_code = mutation_code
-                
-                # Display original and mutated sequences
-                st.subheader("Original Sequence")
-                st.code(f'{comment}\n"{original_sequence}"', language="python")
                 
                 # Extract mutation position and check if it's a termination
                 pattern = r"([A-Z])(\d+)([A-Z]{1,3})"
