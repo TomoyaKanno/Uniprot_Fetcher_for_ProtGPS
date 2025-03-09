@@ -4,7 +4,7 @@ import re
 import html
 
 def fetch_uniprot_data(accession):
-    url = f"https://rest.uniprot.org/uniprotkb/{accession}?fields=accession%2Cprotein_name%2C%20sequence%2C%20organism_name"
+    url = f"https://rest.uniprot.org/uniprotkb/{accession}?fields=accession%2Cprotein_name%2C%20sequence%2C%20organism_name%2C%20gene_primary"
     response = requests.get(url)
     return response.json()
 
@@ -52,6 +52,7 @@ def apply_mutation(sequence, mutation_code):
 # Initialize session state with default values
 default_state = {
     'sequences': [],           # List to store collected sequences
+    'labels': [],              # List to store reordered headers
     'current_data': None,      # Current UniProt data
     'mutated_sequence': None,  # Current mutated sequence
     'mutation_code': None,     # Current mutation code
@@ -172,21 +173,45 @@ if st.button("Add to List"):
         
         formatted_entry = f'{comment}\n"{sequence}"'
         
+        # Create reordered label with organism first, protein name second, and mutation/WT last
+        data = st.session_state.current_data
+        protein_name = data["proteinDescription"]["recommendedName"]["fullName"]["value"]
+        organism = data["organism"]["commonName"]
+        gene = data["genes"][0]["geneName"]["value"]
+            
+        mutation_info = f"[{st.session_state.mutation_code}]" if st.session_state.mutation_code else "[WT]"
+        reordered_label = f"{organism}, {gene}, {mutation_info}"
+        
         if formatted_entry not in st.session_state.sequences:
             st.session_state.sequences.append(formatted_entry)
+            st.session_state.labels.append(reordered_label)
             st.success("Sequence added to list!")
         else:
             st.warning("This sequence is already in the list!")
     else:
         st.warning("Please fetch a sequence first!")
 
-# Display the collected sequences
+# Display the collected sequences and labels side by side
 if st.session_state.sequences:
-    st.subheader("Collected Sequences")
-    formatted_list = "sequences = [\n    " + ",\n    ".join(st.session_state.sequences) + "\n]"
-    st.code(formatted_list, language="python")
+    st.subheader("Collected Data")
     
-    # Add a clear list button
-    if st.button("Clear List"):
+    # Create two columns for side-by-side display
+    col1, col2 = st.columns(2)
+    
+    # First column: Sequences
+    with col1:
+        st.markdown("### Sequences")
+        formatted_sequences = "sequences = [\n    " + ",\n    ".join(st.session_state.sequences) + "\n]"
+        st.code(formatted_sequences, language="python")
+    
+    # Second column: Labels
+    with col2:
+        st.markdown("### Labels")
+        formatted_labels = "labels = [\n    " + ",\n    ".join([f'"{label}"' for label in st.session_state.labels]) + "\n]"
+        st.code(formatted_labels, language="python")
+    
+    # Add a clear list button - full width below both columns
+    if st.button("Clear Lists"):
         st.session_state.sequences = []
-        st.success("List cleared!")
+        st.session_state.labels = []
+        st.success("Lists cleared!")
