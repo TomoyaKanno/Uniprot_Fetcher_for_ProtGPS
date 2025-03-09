@@ -1,4 +1,2 @@
 streamlit
 requests
-re
-html
