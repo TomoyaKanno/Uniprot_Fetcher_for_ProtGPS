@@ -55,7 +55,6 @@ default_state = {
     'current_data': None,      # Current UniProt data
     'mutated_sequence': None,  # Current mutated sequence
     'mutation_code': None,     # Current mutation code
-    'show_mutation_input': False  # Whether to show mutation input field
 }
 
 for key, value in default_state.items():
@@ -65,106 +64,101 @@ for key, value in default_state.items():
 # Streamlit interface
 st.title("UniProt Sequence Collector")
 
-# Input section
-accession = st.text_input("Enter UniProt Accession ID", value="Q9Y5B6")
+# Input section with two side-by-side input boxes
+col1, col2 = st.columns(2)
+with col1:
+    accession = st.text_input("Enter UniProt Accession ID", value="Q9Y5B6")
+with col2:
+    mutation_code = st.text_input("Enter mutation (Optional)", placeholder="e.g., P30R or P30TER")
 
 # Fetch and Format button - using full width
 if st.button("Fetch and Format"):
     data = fetch_uniprot_data(accession)
     st.session_state.current_data = data
-    st.session_state.mutated_sequence = None
-    st.session_state.mutation_code = None
-    st.session_state.show_mutation_input = False
-    comment, sequence = format_sequence_entry(data)
-    st.code(f'{comment}\n"{sequence}"', language="python")
-
-# Add mutation button and related functionalities
-if st.session_state.current_data is not None:
-    if st.button("Add Mutation"):
-        st.session_state.show_mutation_input = True
     
-    # Display the original sequence immediately when in mutation mode
-    if st.session_state.show_mutation_input:
-        # Display the original sequence before mutation input
-        comment, original_sequence = format_sequence_entry(st.session_state.current_data)
-        st.subheader("Original Sequence")
-        st.code(f'{comment}\n"{original_sequence}"', language="python")
+    # Get the original sequence data
+    original_comment, original_sequence = format_sequence_entry(data)
+    
+    # If mutation is provided, apply it
+    if mutation_code:
+        st.session_state.mutation_code = mutation_code
+        mutated_sequence, error = apply_mutation(original_sequence, mutation_code)
         
-        # Then show the mutation input
-        mutation_code = st.text_input("Enter mutation (e.g., P30R or P30TER)")
-        
-        if mutation_code:
-            # Apply the mutation
-            mutated_sequence, error = apply_mutation(original_sequence, mutation_code)
+        if error:
+            st.error(error)
+            # Show the original sequence if there's an error
+            st.code(f'{original_comment}\n"{original_sequence}"', language="python")
+            st.session_state.mutated_sequence = None
+        else:
+            st.session_state.mutated_sequence = mutated_sequence
             
-            if error:
-                st.error(error)
-            else:
-                st.session_state.mutated_sequence = mutated_sequence
-                st.session_state.mutation_code = mutation_code
+            # Extract mutation position and check if it's a termination
+            pattern = r"([A-Z])(\d+)([A-Z]{1,3})"
+            match = re.match(pattern, mutation_code)
+            orig_aa, position, new_aa = match.groups()
+            is_termination = (new_aa == "TER")
+            pos_index = int(position) - 1  # 0-based index
+            
+            # Create a better mutation preview
+            st.subheader("Mutation Preview")
+            
+            # Create containers for side-by-side display
+            preview_col1, preview_col2 = st.columns(2)
+            
+            # Original sequence display with highlight
+            with preview_col1:
+                st.markdown("**Original:**")
+                st.text(f"Position: {position}")
                 
-                # Extract mutation position and check if it's a termination
-                pattern = r"([A-Z])(\d+)([A-Z]{1,3})"
-                match = re.match(pattern, mutation_code)
-                orig_aa, position, new_aa = match.groups()
-                is_termination = (new_aa == "TER")
-                pos_index = int(position) - 1  # 0-based index
+                # Format sequence with highlighted position
+                formatted_orig = (
+                    f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
+                    f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
+                    f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
+                    f'{html.escape(original_sequence[:pos_index])}'
+                    f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(original_sequence[pos_index])}</span>'
+                    f'{html.escape(original_sequence[pos_index + 1:])}'
+                    f'</div></div>'
+                )
+                st.markdown(formatted_orig, unsafe_allow_html=True)
+            
+            # Mutated sequence display with highlight
+            with preview_col2:
+                st.markdown("**Mutated:**")
+                st.text(f"Mutation: {mutation_code}")
                 
-                # Create a better mutation preview
-                st.subheader("Mutation Preview")
-                
-                # Create containers for side-by-side display
-                col1, col2 = st.columns(2)
-                
-                # Original sequence display with highlight
-                with col1:
-                    st.markdown("**Original:**")
-                    st.text(f"Position: {position}")
-                    
-                    # Format sequence with highlighted position
-                    formatted_orig = (
+                if is_termination:
+                    # For termination, show truncated sequence with marker
+                    formatted_mut = (
                         f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
                         f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
                         f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
-                        f'{html.escape(original_sequence[:pos_index])}'
-                        f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(original_sequence[pos_index])}</span>'
-                        f'{html.escape(original_sequence[pos_index + 1:])}'
+                        f'{html.escape(mutated_sequence)}'
+                        f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">■</span>'
                         f'</div></div>'
                     )
-                    st.markdown(formatted_orig, unsafe_allow_html=True)
-                
-                # Mutated sequence display with highlight
-                with col2:
-                    st.markdown("**Mutated:**")
-                    st.text(f"Mutation: {mutation_code}")
-                    
-                    if is_termination:
-                        # For termination, show truncated sequence with marker
-                        formatted_mut = (
-                            f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
-                            f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
-                            f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
-                            f'{html.escape(mutated_sequence)}'
-                            f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">■</span>'
-                            f'</div></div>'
-                        )
-                    else:
-                        # Format sequence with highlighted mutation
-                        formatted_mut = (
-                            f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
-                            f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
-                            f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
-                            f'{html.escape(mutated_sequence[:pos_index])}'
-                            f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(mutated_sequence[pos_index])}</span>'
-                            f'{html.escape(mutated_sequence[pos_index + 1:])}'
-                            f'</div></div>'
-                        )
-                    st.markdown(formatted_mut, unsafe_allow_html=True)
-                
-                # Show full mutated sequence
-                st.subheader("Mutated Sequence")
-                comment_with_mutation, _ = format_sequence_entry(st.session_state.current_data, mutation_code)
-                st.code(f'{comment_with_mutation}\n"{mutated_sequence}"', language="python")
+                else:
+                    # Format sequence with highlighted mutation
+                    formatted_mut = (
+                        f'<div style="font-family:monospace; max-width:100%; overflow-x:auto; '
+                        f'border:1px solid #ccc; padding:8px; border-radius:4px;">'
+                        f'<div style="word-wrap:break-word; white-space:pre-wrap; width:100%;">'
+                        f'{html.escape(mutated_sequence[:pos_index])}'
+                        f'<span style="background-color:#ff6b6b;color:white;padding:0 2px;">{html.escape(mutated_sequence[pos_index])}</span>'
+                        f'{html.escape(mutated_sequence[pos_index + 1:])}'
+                        f'</div></div>'
+                    )
+                st.markdown(formatted_mut, unsafe_allow_html=True)
+            
+            # Show full mutated sequence
+            st.subheader("Mutated Sequence")
+            comment_with_mutation, _ = format_sequence_entry(data, mutation_code)
+            st.code(f'{comment_with_mutation}\n"{mutated_sequence}"', language="python")
+    else:
+        # If no mutation is provided, show the original sequence
+        st.session_state.mutation_code = None
+        st.session_state.mutated_sequence = None
+        st.code(f'{original_comment}\n"{original_sequence}"', language="python")
 
 # Add to List button
 if st.button("Add to List"):
