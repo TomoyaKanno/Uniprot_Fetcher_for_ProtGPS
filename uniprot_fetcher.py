@@ -49,33 +49,18 @@ def apply_mutation(sequence, mutation_code):
     
     return mutated_sequence, None
 
-def get_sequence_context(sequence, position, context_size=10):
-    """Get a portion of the sequence around the mutation for clearer display"""
-    position = int(position) - 1  # Convert to 0-based index
-    
-    # Calculate start and end positions for the context
-    start = max(0, position - context_size)
-    end = min(len(sequence), position + context_size + 1)
-    
-    # Get the context sequence
-    context = sequence[start:end]
-    
-    # Calculate the position of the mutation within the context
-    context_position = position - start
-    
-    return context, context_position, start
+# Initialize session state with default values
+default_state = {
+    'sequences': [],           # List to store collected sequences
+    'current_data': None,      # Current UniProt data
+    'mutated_sequence': None,  # Current mutated sequence
+    'mutation_code': None,     # Current mutation code
+    'show_mutation_input': False  # Whether to show mutation input field
+}
 
-# Initialize session state for storing sequences if it doesn't exist
-if 'sequences' not in st.session_state:
-    st.session_state.sequences = []
-if 'current_data' not in st.session_state:
-    st.session_state.current_data = None
-if 'mutated_sequence' not in st.session_state:
-    st.session_state.mutated_sequence = None
-if 'mutation_code' not in st.session_state:
-    st.session_state.mutation_code = None
-if 'show_mutation_input' not in st.session_state:
-    st.session_state.show_mutation_input = False
+for key, value in default_state.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 # Streamlit interface
 st.title("UniProt Sequence Collector")
